@@ -1,6 +1,13 @@
 # Sticker Status Direct — build plan (draft for owner review)
 
-Status: **proposed, not started.** Nothing here is built yet. Edit anything you disagree with, then say "Do step 1."
+Status: **step 1 done** (storefront, configurator, browser cart; no backend). Next: step 2.
+
+Step 1 notes:
+- Next.js 16, React 19, Tailwind 4, Vitest. Prototype CSS is ported into `src/app/globals.css`; brand tokens are also Tailwind colors.
+- Uploaded files stay in the browser for now (name, size, small image preview). Real uploads to storage are step 4.
+- Checkout shows the full form but "Place order" is disabled until Stripe (step 5). Track Order and Account are short "coming soon" pages until step 3.
+- Quote form on /business doesn't send yet (needs the database/email steps).
+- Already added early: per-product pages with metadata and JSON-LD, sitemap.xml, robots.txt.
 
 Sources: `CLAUDE.md` (brief), `docs/prototype.html` (look, copy, flow, data shapes), `docs/requirements.md` (spec).
 
