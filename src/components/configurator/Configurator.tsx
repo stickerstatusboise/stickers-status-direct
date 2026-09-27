@@ -232,7 +232,7 @@ export function Configurator({ productId, editing }: Props) {
               <span>{art ? "Your artwork" : "Sample art"}</span>
             </div>
           </div>
-          <p className="stage-note">Preview is a guide. Your proof shows the exact size and cut line before we print.</p>
+          <p className="stage-note">The preview shown here is ONLY a guide. The proof you will receive will show proper sizing and cut lines before we print.</p>
           {adjustable ? (
             <div className="art-adjust">
               <div className="row">
