@@ -1,6 +1,15 @@
 # Sticker Status Direct — build plan
 
-Status: **step 2 done in code** (schema, migrations, sample data, order rules). Applied automatically by Vercel production builds (`vercel-build` → `scripts/deploy-db.ts`) once `DATABASE_URL` is set in Vercel. Next: step 3.
+Status: **step 3 done** (sign-in, account, order page, tracker). Step 2 done (schema, migrations, sample data, order rules). Applied automatically by Vercel production builds (`vercel-build` → `scripts/deploy-db.ts`) once `DATABASE_URL` is set in Vercel. Next: step 4.
+
+Step 3 notes:
+- Sign-in: Supabase Auth email OTP. The email has a link and a 6-digit code (code works across devices). `/login`, `/auth/callback` (handles `code` and `token_hash` links), `/auth/signout`. New emails get a customer record automatically; existing customers are matched by email (`linkCustomer`).
+- `src/proxy.ts` (Next 16's renamed middleware) refreshes the session on account/staff routes. Access checks live in pages/actions: `requireCustomer`, `requireStaff`, `canViewOrder`.
+- Account tabs (orders, proofs, tracking, account info), order page (tracker, proof sheet, approve with checkbox / request changes, items, shipping, summary, activity), public Track Order (number + email, progress only), header bell via `/api/me`.
+- Staff can view any customer's account (`/account?as=<id>`) and any order, read-only. `/admin` and `/production` are staff-only placeholders until steps 7–8; customers get a 404 there.
+- Reorder button deferred to step 9. Order thumbnails use `files.sample_art` until real image previews in step 4.
+- Supabase's built-in email templates can't be edited without custom SMTP, so until step 6 the sign-in email only has the link (must be opened in the same browser; PKCE). Step 6: add `{{ .Token }}` to the Magic Link and Confirm signup templates so the 6-digit code works across devices.
+- Supabase's built-in email sender only delivers to the project team's addresses and is rate-limited; customers need custom SMTP (Resend), step 6.
 
 Step 2 notes:
 - Drizzle ORM, schema in `src/server/db/schema.ts`, migrations in `drizzle/` (`0001_rules.sql` is hand-written: proof lock triggers, `updated_at`, lowercase emails, RLS on with no policies).
