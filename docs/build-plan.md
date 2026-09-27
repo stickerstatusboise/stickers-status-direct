@@ -8,6 +8,7 @@ Step 3 notes:
 - Account tabs (orders, proofs, tracking, account info), order page (tracker, proof sheet, approve with checkbox / request changes, items, shipping, summary, activity), public Track Order (number + email, progress only), header bell via `/api/me`.
 - Staff can view any customer's account (`/account?as=<id>`) and any order, read-only. `/admin` and `/production` are staff-only placeholders until steps 7–8; customers get a 404 there.
 - Reorder button deferred to step 9. Order thumbnails use `files.sample_art` until real image previews in step 4.
+- Supabase's built-in email templates can't be edited without custom SMTP, so until step 6 the sign-in email only has the link (must be opened in the same browser; PKCE). Step 6: add `{{ .Token }}` to the Magic Link and Confirm signup templates so the 6-digit code works across devices.
 - Supabase's built-in email sender only delivers to the project team's addresses and is rate-limited; customers need custom SMTP (Resend), step 6.
 
 Step 2 notes:
