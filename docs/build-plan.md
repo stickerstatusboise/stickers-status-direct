@@ -1,6 +1,15 @@
 # Sticker Status Direct — build plan
 
-Status: **step 3 done** (sign-in, account, order page, tracker). Step 2 done (schema, migrations, sample data, order rules). Applied automatically by Vercel production builds (`vercel-build` → `scripts/deploy-db.ts`) once `DATABASE_URL` is set in Vercel. Next: step 4.
+Status: **step 4 done** (artwork uploads to private storage). Step 3 done (sign-in, account, order page, tracker). Step 2 done (schema, migrations, sample data, order rules). Applied automatically by Vercel production builds (`vercel-build` → `scripts/deploy-db.ts`) once `DATABASE_URL` is set in Vercel. Next: step 5.
+
+Step 4 notes:
+- Browser → `POST /api/uploads` (checks name/size, creates a `files` row with status `pending` and a hashed secret, returns a one-time signed upload URL) → PUT straight to the private `artwork` bucket (avoids Vercel's 4.5 MB body limit) → `POST /api/uploads/complete` (reads the first 256 KB, checks the file signature matches the extension, reads PNG/JPEG pixel size; mismatches are deleted and marked `rejected`). Logic in `src/server/uploads.ts`, rules in `src/lib/uploads.ts`.
+- Limits: 50 MB per file (Supabase free plan maximum), 10 files per sticker. Allowed: AI (PDF- or PostScript-based), EPS, SVG, PDF, PSD, PNG, JPG.
+- The cart keeps each file's `fileId` + secret; step 5 calls `attachUploads` in the payment webhook to attach them to the order item.
+- `GET /api/files/[id]/download` gives a 5-minute signed download link to staff, the order's customer, or the uploader.
+- `/api/cron/cleanup-uploads` (daily via `vercel.json`, needs `CRON_SECRET`) deletes unattached uploads older than 7 days.
+- Buckets `artwork` and `proofs` are created by the deploy script when `SUPABASE_SERVICE_ROLE_KEY` is set. Without it, uploads fall back to browser-only (step-1 behaviour).
+- Not yet: rate limiting on `/api/uploads` (unattached files are cleaned up weekly); thumbnails of real uploads on order pages (step 7).
 
 Step 3 notes:
 - Sign-in: Supabase Auth email OTP. The email has a link and a 6-digit code (code works across devices). `/login`, `/auth/callback` (handles `code` and `token_hash` links), `/auth/signout`. New emails get a customer record automatically; existing customers are matched by email (`linkCustomer`).

@@ -15,6 +15,13 @@
       "when": 1790522059344,
       "tag": "0001_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790533707531,
+      "tag": "0002_file_uploads",
+      "breakpoints": true
     }
   ]
 }

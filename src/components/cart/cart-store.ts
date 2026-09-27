@@ -17,6 +17,17 @@ export interface ArtFile {
   /** Pixel size, for PNG/JPG files (used for the print-sharpness check). */
   width?: number;
   height?: number;
+  /** Local id for this file in the configurator. */
+  key?: string;
+  /** Upload state: uploading → ready, or error. "local" = file storage not switched on, kept in the browser only. */
+  status?: "uploading" | "ready" | "error" | "local";
+  progress?: number;
+  error?: string;
+  /** The browser still has the file, so a failed upload can be retried. */
+  canRetry?: boolean;
+  /** Stored file and its secret, used at checkout to attach it to the order. */
+  fileId?: string;
+  token?: string;
 }
 
 export interface CartItem extends StickerConfig {
