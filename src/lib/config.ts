@@ -13,6 +13,8 @@ export interface StickerConfig {
   material: MaterialId;
   options: Record<OptionId, boolean>;
   designHelp: boolean;
+  /** Customer asked us to enlarge and sharpen their image before printing (flat fee). */
+  enhance: boolean;
   designNotes: string;
 }
 
@@ -28,6 +30,7 @@ export function newConfig(productId: string): StickerConfig {
     material: p.material,
     options: { laminate: false, rush: false },
     designHelp: false,
+    enhance: false,
     designNotes: "",
   };
 }

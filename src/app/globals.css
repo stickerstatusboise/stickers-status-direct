@@ -88,7 +88,7 @@ svg.ic{display:inline-block}
 @layer components {
 /* Buttons */
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:0 22px;border-radius:999px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;font-size:13.5px;transition:transform .15s,background .15s,box-shadow .15s,border-color .15s;white-space:nowrap;text-align:center}
-.btn-red{background:var(--red);color:#fff}
+.btn-red{background:var(--red);color:#fff;line-height:1.4}
 .btn-red:hover{background:var(--red-hover);transform:translateY(-1px);box-shadow:0 10px 24px rgba(225,16,43,.32)}
 .btn-ink{background:var(--ink);color:var(--bg)}
 .btn-ink:hover{transform:translateY(-1px)}
@@ -449,4 +449,9 @@ body.has-mbar .toasts{bottom:calc(96px + env(safe-area-inset-bottom,0px))}
 .qbadge[data-level="good"]{background:var(--ok-soft);color:var(--ok)}
 .qbadge[data-level="ok"]{background:var(--warn-soft);color:var(--warn)}
 .qbadge[data-level="low"]{background:var(--red-soft);color:var(--red-ink)}
+}
+
+@layer components {
+.q-note[data-level="fixed"]{background:var(--ok-soft);color:var(--ok)}
+.opt .rec-tag,.rec-tag{display:inline-block;margin-left:8px;vertical-align:2px;font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:2px 7px;border-radius:5px;background:var(--red);color:#fff;line-height:1.4}
 }

@@ -35,6 +35,20 @@ describe("calculatePrice (placeholder formula, matches the prototype)", () => {
     expect(d.perCents).toBeCloseTo(156.6, 6);
   });
 
+  it("adds a flat $5 image enhancement fee per design, not per sticker", () => {
+    const base = calculatePrice(cfg({ qty: 1000 }));
+    const p = calculatePrice(cfg({ qty: 1000, enhance: true }));
+    expect(p.totalCents).toBe(base.totalCents + 500);
+    expect(p.lines.at(-1)).toEqual({ label: "Image enhancement", cents: 500 });
+    expect(p.perCents).toBe(base.perCents);
+    // Stacks with design help
+    expect(calculatePrice(cfg({ enhance: true, designHelp: true })).totalCents).toBe(5321 + 3500 + 500);
+  });
+
+  it("does not add enhancement to extra option prices", () => {
+    expect(optionPriceCents(cfg({ enhance: true }), 0.1)).toBe(532);
+  });
+
   it("charges the minimum order for tiny jobs", () => {
     expect(calculatePrice(cfg({ size: 2, qty: 50, shape: "circle" })).totalCents).toBe(2500);
   });

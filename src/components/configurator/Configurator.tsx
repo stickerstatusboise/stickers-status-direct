@@ -12,7 +12,7 @@ import { CATALOG, getMaterial, getProduct, getShape, type ShapeId } from "@/lib/
 import { dimLabel, dims, newConfig, normalizeQty, type StickerConfig } from "@/lib/config";
 import { fmtQty, fmtSize, money } from "@/lib/format";
 import { calculatePrice, optionPriceCents } from "@/lib/pricing";
-import { QualityBadge, QualityNote } from "./ArtQuality";
+import { fileQuality, QualityBadge, QualityNote } from "./ArtQuality";
 
 const SHAPE_ICONS: Record<ShapeId, React.ReactNode> = {
   diecut: <path d="M20 5c6 0 7 5 11 6s5 6 3 10 1 9-5 12-8 1-12 1-10-4-10-10 3-7 2-11 5-8 11-8z" fill="none" stroke="currentColor" strokeWidth="2.2" strokeDasharray="3 2.5" />,
@@ -62,6 +62,7 @@ const toConfig = (i: CartItem): StickerConfig => ({
   material: i.material,
   options: { ...i.options },
   designHelp: i.designHelp,
+  enhance: !!i.enhance,
   designNotes: i.designNotes,
 });
 
@@ -101,9 +102,17 @@ export function Configurator({ productId, editing }: Props) {
   const art = files.find((f) => f.url);
   const adjustable = !!art && canAdjustArt(cfg.shape);
 
+  const rasterFiles = files.filter((f) => RASTER_TYPES.includes(f.type));
+  const enhanceRecommended = rasterFiles.some((f) => {
+    const q = fileQuality(f, d, cfg.shape, f === art ? fit : undefined);
+    return q && q.level !== "good";
+  });
+
   /** Replace the file list; start the placement over when the artwork on the preview changes. */
   function updateFiles(next: ArtFile[]) {
     if (next.find((f) => f.url)?.url !== art?.url) setFit(DEFAULT_FIT);
+    // Nothing left to enhance: don't charge for it
+    if (!next.some((f) => RASTER_TYPES.includes(f.type))) set({ enhance: false });
     setFiles(next);
   }
 
@@ -249,7 +258,7 @@ export function Configurator({ productId, editing }: Props) {
           ) : art ? (
             <p className="stage-note">Die cut stickers are cut around your artwork, so it always fills the sticker.</p>
           ) : null}
-          <QualityNote file={art} sticker={d} shape={cfg.shape} fit={fit} />
+          <QualityNote file={art} sticker={d} shape={cfg.shape} fit={fit} enhance={cfg.enhance} />
           <div className="spec-mini">
             <div>
               <span>Size</span>
@@ -497,7 +506,7 @@ export function Configurator({ productId, editing }: Props) {
                     <div className="fmeta">
                       {f.type.toUpperCase()} · {fmtSize(f.size)}
                       {f.width && f.height ? ` · ${f.width} × ${f.height} px` : ""}
-                      <QualityBadge file={f} sticker={d} shape={cfg.shape} fit={f === art ? fit : undefined} />
+                      <QualityBadge file={f} sticker={d} shape={cfg.shape} fit={f === art ? fit : undefined} enhance={cfg.enhance} />
                     </div>
                   </div>
                   <div className="acts">
@@ -520,6 +529,22 @@ export function Configurator({ productId, editing }: Props) {
               <div className="form-err" role="alert" style={{ marginTop: 12 }}>
                 {err}
               </div>
+            ) : null}
+            {rasterFiles.length ? (
+              <label className="opt design-help">
+                <input type="checkbox" checked={cfg.enhance} onChange={(e) => set({ enhance: e.target.checked })} />
+                <div>
+                  <b>
+                    Enhance my image for a sharper print
+                    {enhanceRecommended ? <span className="rec-tag">Recommended</span> : null}
+                  </b>
+                  <span>
+                    We enlarge your image and sharpen the details with professional software before printing. Great for small photos,
+                    screenshots and logos saved from the web. You&apos;ll see the result on your proof.
+                  </span>
+                </div>
+                <span className="price-add">+{money(CATALOG.enhanceFee * 100)}</span>
+              </label>
             ) : null}
             <label className="opt design-help">
               <input

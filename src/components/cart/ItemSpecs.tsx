@@ -25,6 +25,12 @@ export function ItemSpecs({ item }: { item: CartItem }) {
         ))}
       <dt>Design help</dt>
       <dd>{item.designHelp ? `Yes (+${money(CATALOG.designFee * 100)})` : "No"}</dd>
+      {item.enhance ? (
+        <>
+          <dt>Enhancement</dt>
+          <dd>Sharpen &amp; enlarge image (+{money(CATALOG.enhanceFee * 100)})</dd>
+        </>
+      ) : null}
       <dt>Artwork</dt>
       <dd>
         {item.files.length ? (
@@ -35,8 +41,8 @@ export function ItemSpecs({ item }: { item: CartItem }) {
                 {i ? ", " : ""}
                 {f.name}
                 {q && q.level !== "good" ? (
-                  <span className="qbadge" data-level={q.level}>
-                    {QUALITY_LABEL[q.level]}
+                  <span className="qbadge" data-level={item.enhance ? "good" : q.level}>
+                    {item.enhance ? "Will be enhanced" : QUALITY_LABEL[q.level]}
                   </span>
                 ) : null}
               </span>
