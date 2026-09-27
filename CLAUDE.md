@@ -52,3 +52,6 @@ customers, orders, order_items, files (artwork and proofs, stored in object stor
 - Small commits per step; run lint, typecheck and tests before calling a step done.
 - Staff pages (/admin, /production) require a staff role.
 - Ask before choosing paid services or changing the pricing formula.
+
+## Next.js version note
+@AGENTS.md
