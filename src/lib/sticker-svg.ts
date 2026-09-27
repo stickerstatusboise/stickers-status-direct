@@ -3,6 +3,7 @@
  * Port of the prototype's stickerSVG(). Returns SVG markup so it renders the same on the server and in the browser.
  */
 import { ART } from "./art";
+import { artInset, canAdjustArt, clampFit, type ArtFit } from "./artwork";
 import type { ArtKey, MaterialId, ShapeId } from "./catalog";
 import { clamp } from "./config";
 import { esc } from "./format";
@@ -13,6 +14,8 @@ export interface StickerSvgOptions {
   art?: ArtKey;
   /** Customer image (data: or blob: URL). Takes priority over art. */
   url?: string | null;
+  /** Customer's resize/move of an uploaded image. Ignored for die cut. */
+  fit?: ArtFit;
   shape?: ShapeId;
   material?: MaterialId;
   w?: number;
@@ -40,13 +43,16 @@ export function stickerSvg(o: StickerSvgOptions): string {
   const A = o.art ? ART[o.art] : null;
   const clear = material === "clear";
   const bg = clear ? "rgba(255,255,255,.12)" : o.url ? "#fff" : A ? A.bg : "#fff";
-  const inset = shape === "diecut" ? 1 : shape === "circle" || shape === "oval" ? 0.7 : 0.8;
+  const inset = artInset(shape);
 
   let content = "";
   if (o.url) {
-    const iw = SW * inset;
-    const ih = SH * inset;
-    content = `<image href="${esc(o.url)}" x="${pad + (SW - iw) / 2}" y="${pad + (SH - ih) / 2}" width="${iw}" height="${ih}" preserveAspectRatio="xMidYMid meet"/>`;
+    const f = o.fit && canAdjustArt(shape) ? clampFit(o.fit) : { scale: 1, x: 0, y: 0 };
+    const iw = SW * inset * f.scale;
+    const ih = SH * inset * f.scale;
+    const ix = pad + (SW - iw) / 2 + f.x * SW;
+    const iy = pad + (SH - ih) / 2 + f.y * SH;
+    content = `<image href="${esc(o.url)}" x="${ix.toFixed(1)}" y="${iy.toFixed(1)}" width="${iw.toFixed(1)}" height="${ih.toFixed(1)}" preserveAspectRatio="xMidYMid meet"/>`;
   } else if (A) {
     const s = (inset * Math.min(SW, SH)) / 200;
     const tx = pad + (SW - 200 * s) / 2;

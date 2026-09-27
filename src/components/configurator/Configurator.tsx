@@ -7,10 +7,12 @@ import { cart, newUid, type ArtFile, type CartItem } from "@/components/cart/car
 import { StickerPreview } from "@/components/sticker/StickerPreview";
 import { Icon } from "@/components/ui/Icon";
 import { useToast } from "@/components/ui/Toast";
+import { canAdjustArt, clampFit, DEFAULT_FIT, FIT_LIMITS, isDefaultFit, RASTER_TYPES, type ArtFit } from "@/lib/artwork";
 import { CATALOG, getMaterial, getProduct, getShape, type ShapeId } from "@/lib/catalog";
 import { dimLabel, dims, newConfig, normalizeQty, type StickerConfig } from "@/lib/config";
 import { fmtQty, fmtSize, money } from "@/lib/format";
 import { calculatePrice, optionPriceCents } from "@/lib/pricing";
+import { QualityBadge, QualityNote } from "./ArtQuality";
 
 const SHAPE_ICONS: Record<ShapeId, React.ReactNode> = {
   diecut: <path d="M20 5c6 0 7 5 11 6s5 6 3 10 1 9-5 12-8 1-12 1-10-4-10-10 3-7 2-11 5-8 11-8z" fill="none" stroke="currentColor" strokeWidth="2.2" strokeDasharray="3 2.5" />,
@@ -36,6 +38,20 @@ function readPreview(f: File): Promise<string | null> {
   });
 }
 
+/** Pixel size of a PNG/JPG, for the print-sharpness check. */
+async function readImageSize(f: File): Promise<{ width?: number; height?: number }> {
+  if (!RASTER_TYPES.includes(extOf(f.name)) || typeof createImageBitmap !== "function") return {};
+  try {
+    const bmp = await createImageBitmap(f);
+    const size = { width: bmp.width, height: bmp.height };
+    bmp.close();
+    return size;
+  } catch {
+    return {};
+  }
+}
+
+const KEY_STEP = 0.02;
 const toConfig = (i: CartItem): StickerConfig => ({
   productId: i.productId,
   shape: i.shape,
@@ -62,6 +78,7 @@ export function Configurator({ productId, editing }: Props) {
 
   const [cfg, setCfg] = useState<StickerConfig>(() => (editing ? toConfig(editing) : newConfig(product.id)));
   const [files, setFiles] = useState<ArtFile[]>(editing?.files ?? []);
+  const [fit, setFit] = useState<ArtFit>(editing?.artFit ?? DEFAULT_FIT);
   const [err, setErr] = useState("");
   const [customQty, setCustomQty] = useState(CATALOG.quantities.includes(cfg.qty) ? "" : String(cfg.qty));
   const [dragOver, setDragOver] = useState(false);
@@ -69,6 +86,7 @@ export function Configurator({ productId, editing }: Props) {
   const replaceIdx = useRef<number | null>(null);
   const artworkRef = useRef<HTMLElement>(null);
   const notesRef = useRef<HTMLTextAreaElement>(null);
+  const drag = useRef<{ px: number; py: number; start: ArtFit; perX: number; perY: number } | null>(null);
 
   // Lift toasts above the fixed mobile price bar while on this page
   useEffect(() => {
@@ -81,6 +99,13 @@ export function Configurator({ productId, editing }: Props) {
   const d = dims(cfg);
   const sq = cfg.shape === "circle" || cfg.shape === "square";
   const art = files.find((f) => f.url);
+  const adjustable = !!art && canAdjustArt(cfg.shape);
+
+  /** Replace the file list; start the placement over when the artwork on the preview changes. */
+  function updateFiles(next: ArtFile[]) {
+    if (next.find((f) => f.url)?.url !== art?.url) setFit(DEFAULT_FIT);
+    setFiles(next);
+  }
 
   async function addFiles(list: FileList | File[]) {
     const arr = [...list];
@@ -89,11 +114,11 @@ export function Configurator({ productId, editing }: Props) {
     if (bad.length) toast("That file type isn't supported", `${bad.map((f) => f.name).join(", ")}. Use AI, EPS, SVG, PDF, PSD, PNG or JPG.`);
     if (!ok.length) return;
     const out: ArtFile[] = await Promise.all(
-      ok.map(async (f) => ({ name: f.name, size: f.size, type: extOf(f.name), url: await readPreview(f) })),
+      ok.map(async (f) => ({ name: f.name, size: f.size, type: extOf(f.name), url: await readPreview(f), ...(await readImageSize(f)) })),
     );
     const at = replaceIdx.current;
     replaceIdx.current = null;
-    setFiles((cur) => (at != null && cur[at] ? [...cur.slice(0, at), ...out, ...cur.slice(at + 1)] : [...cur, ...out]));
+    updateFiles(at != null && files[at] ? [...files.slice(0, at), ...out, ...files.slice(at + 1)] : [...files, ...out]);
     setErr("");
     toast(out.length > 1 ? `${out.length} files added` : "Artwork added", out.map((f) => f.name).join(", "), "ok");
   }
@@ -110,7 +135,13 @@ export function Configurator({ productId, editing }: Props) {
       artworkRef.current?.scrollIntoView({ block: "center" });
       return;
     }
-    const item: CartItem = { ...cfg, qty: normalizeQty(cfg.qty), uid: editing?.uid ?? newUid(), files };
+    const item: CartItem = {
+      ...cfg,
+      qty: normalizeQty(cfg.qty),
+      uid: editing?.uid ?? newUid(),
+      files,
+      artFit: adjustable && !isDefaultFit(fit) ? fit : undefined,
+    };
     cart.upsert(item);
     router.push("/cart");
     toast(editing ? "Cart updated" : "Added to cart", `${fmtQty(item.qty)} ${product.name.toLowerCase()} · ${money(calculatePrice(item).totalCents)}`, "ok");
@@ -129,10 +160,55 @@ export function Configurator({ productId, editing }: Props) {
       </div>
       <div className="cfg">
         <div className="cfg-left">
-          <div className="stage">
+          <div
+            className={`stage ${adjustable ? "can-drag" : ""}`}
+            {...(adjustable
+              ? {
+                  tabIndex: 0,
+                  role: "group",
+                  "aria-label": "Artwork position. Drag, or use the arrow keys, to move your artwork.",
+                  onPointerDown: (e: React.PointerEvent<HTMLDivElement>) => {
+                    const svg = e.currentTarget.querySelector<SVGSVGElement>("svg.stk");
+                    if (!svg) return;
+                    const r = svg.getBoundingClientRect();
+                    const vb = svg.viewBox.baseVal;
+                    drag.current = {
+                      px: e.clientX,
+                      py: e.clientY,
+                      start: fit,
+                      perX: (r.width * (vb.width - 36)) / vb.width,
+                      perY: (r.height * (vb.height - 36)) / vb.height,
+                    };
+                    e.currentTarget.setPointerCapture(e.pointerId);
+                  },
+                  onPointerMove: (e: React.PointerEvent<HTMLDivElement>) => {
+                    const g = drag.current;
+                    if (!g) return;
+                    setFit(clampFit({ ...g.start, x: g.start.x + (e.clientX - g.px) / g.perX, y: g.start.y + (e.clientY - g.py) / g.perY }));
+                  },
+                  onPointerUp: () => (drag.current = null),
+                  onPointerCancel: () => (drag.current = null),
+                  onKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) => {
+                    const moves: Record<string, Partial<ArtFit>> = {
+                      ArrowLeft: { x: fit.x - KEY_STEP },
+                      ArrowRight: { x: fit.x + KEY_STEP },
+                      ArrowUp: { y: fit.y - KEY_STEP },
+                      ArrowDown: { y: fit.y + KEY_STEP },
+                      "+": { scale: fit.scale + 0.05 },
+                      "=": { scale: fit.scale + 0.05 },
+                      "-": { scale: fit.scale - 0.05 },
+                    };
+                    if (!moves[e.key]) return;
+                    e.preventDefault();
+                    setFit(clampFit({ ...fit, ...moves[e.key] }));
+                  },
+                }
+              : {})}
+          >
             <StickerPreview
               art={art ? undefined : product.art}
               url={art?.url}
+              fit={fit}
               shape={cfg.shape}
               material={cfg.material}
               w={d.w}
@@ -148,6 +224,32 @@ export function Configurator({ productId, editing }: Props) {
             </div>
           </div>
           <p className="stage-note">Preview is a guide. Your proof shows the exact size and cut line before we print.</p>
+          {adjustable ? (
+            <div className="art-adjust">
+              <div className="row">
+                <label htmlFor="art-scale">Artwork size</label>
+                <span className="mono small">{Math.round(fit.scale * 100)}%</span>
+              </div>
+              <input
+                id="art-scale"
+                type="range"
+                min={FIT_LIMITS.minScale * 100}
+                max={FIT_LIMITS.maxScale * 100}
+                step={5}
+                value={Math.round(fit.scale * 100)}
+                onChange={(e) => setFit(clampFit({ ...fit, scale: e.target.valueAsNumber / 100 }))}
+              />
+              <div className="row">
+                <span className="small muted">Drag your artwork on the preview to move it.</span>
+                <button className="reset" onClick={() => setFit(DEFAULT_FIT)} disabled={isDefaultFit(fit)}>
+                  Reset
+                </button>
+              </div>
+            </div>
+          ) : art ? (
+            <p className="stage-note">Die cut stickers are cut around your artwork, so it always fills the sticker.</p>
+          ) : null}
+          <QualityNote file={art} sticker={d} shape={cfg.shape} fit={fit} />
           <div className="spec-mini">
             <div>
               <span>Size</span>
@@ -374,6 +476,10 @@ export function Configurator({ productId, editing }: Props) {
                   </span>
                 ))}
               </div>
+              <p className="art-tip">
+                For the sharpest print, upload your original logo file (AI, EPS, SVG or PDF) or a large, high-quality image. Small or low-quality
+                images, like screenshots or pictures saved from social media, can print blurry.
+              </p>
             </div>
             <div className="files">
               {files.map((f, i) => (
@@ -390,6 +496,8 @@ export function Configurator({ productId, editing }: Props) {
                     <div className="fname">{f.name}</div>
                     <div className="fmeta">
                       {f.type.toUpperCase()} · {fmtSize(f.size)}
+                      {f.width && f.height ? ` · ${f.width} × ${f.height} px` : ""}
+                      <QualityBadge file={f} sticker={d} shape={cfg.shape} fit={f === art ? fit : undefined} />
                     </div>
                   </div>
                   <div className="acts">
@@ -401,7 +509,7 @@ export function Configurator({ productId, editing }: Props) {
                     >
                       Replace
                     </button>
-                    <button onClick={() => setFiles((cur) => cur.filter((_, j) => j !== i))} aria-label={`Remove ${f.name}`}>
+                    <button onClick={() => updateFiles(files.filter((_, j) => j !== i))} aria-label={`Remove ${f.name}`}>
                       Remove
                     </button>
                   </div>
