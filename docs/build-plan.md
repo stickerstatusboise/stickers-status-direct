@@ -1,6 +1,15 @@
-# Sticker Status Direct — build plan (draft for owner review)
+# Sticker Status Direct — build plan
 
-Status: **step 1 done** (storefront, configurator, browser cart; no backend). Next: step 2.
+Status: **step 2 done in code** (schema, migrations, sample data, order rules). Applied automatically by Vercel production builds (`vercel-build` → `scripts/deploy-db.ts`) once `DATABASE_URL` is set in Vercel. Next: step 3.
+
+Step 2 notes:
+- Drizzle ORM, schema in `src/server/db/schema.ts`, migrations in `drizzle/` (`0001_rules.sql` is hand-written: proof lock triggers, `updated_at`, lowercase emails, RLS on with no policies).
+- One `customers` table for everyone who signs in, with a `role` (customer/staff/admin). `auth_user_id` links a Supabase Auth user on first sign-in (step 3). Seed can create an admin via `ADMIN_EMAIL`.
+- All order changes go through `src/server/orders.ts` (transitionOrder, sendProof, requestChanges, approveProof). Allowed moves are `TRANSITIONS` in `src/lib/status.ts`; a `cancelled` status was added.
+- Due dates: 5pm Boise time, 3 business days after approval (1 for rush), `src/lib/dates.ts`. Holidays aren't skipped yet.
+- Seeded files and proofs point at placeholder art (`files.sample_art`) instead of real storage objects.
+- Tests run against in-memory Postgres (PGlite), so `npm test` needs no database.
+
 
 Step 1 notes:
 - Next.js 16, React 19, Tailwind 4, Vitest. Prototype CSS is ported into `src/app/globals.css`; brand tokens are also Tailwind colors.
