@@ -39,13 +39,13 @@ export function LoginForm({ next }: { next: string }) {
     <form key={emailState.email} className="card" action={verifyAction} style={{ maxWidth: 520 }}>
       <h2>Check your email</h2>
       <p className="muted" style={{ marginBottom: 16 }}>
-        {emailState.info} Click the link in it, or type the 6-digit code here.
+        {emailState.info} Click the <b>Sign in</b> link in it. Open the email on this device and browser so the link can sign you in here.
       </p>
       <input type="hidden" name="email" value={emailState.email} />
       <input type="hidden" name="next" value={next} />
       <div className="stack">
         <div className="field">
-          <label htmlFor="si-code">Code</label>
+          <label htmlFor="si-code">Or, if your email shows a 6-digit code, enter it here</label>
           <input id="si-code" className="code-input" name="code" inputMode="numeric" autoComplete="one-time-code" maxLength={8} required autoFocus />
         </div>
         {state.error ? (
