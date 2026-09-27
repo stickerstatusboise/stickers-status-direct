@@ -79,6 +79,8 @@ export const CATALOG = {
     { id: "rush", name: "Rush production", hint: "Prints the next business day after you approve", pct: 0.3 },
   ] as ExtraOption[],
   designFee: 35,
+  /** Flat fee per sticker design to enlarge and sharpen a low-resolution image before printing (staff run it through Topaz Gigapixel). */
+  enhanceFee: 5,
   products: [
     { id: "die-cut", name: "Die Cut Stickers", shape: "diecut", material: "gloss", art: "bolt", tag: "Most popular", blurb: "Cut to the exact outline of your design." },
     { id: "circle", name: "Circle Stickers", shape: "circle", material: "gloss", art: "peak", blurb: "Clean, round and perfect for logos." },

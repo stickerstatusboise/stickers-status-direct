@@ -31,7 +31,7 @@ export interface PriceLine {
 }
 export interface Price {
   totalCents: number;
-  /** Price per sticker in cents, excluding the design fee (may be fractional). */
+  /** Price per sticker in cents, excluding flat fees like design help (may be fractional). */
   perCents: number;
   qty: number;
   lines: PriceLine[];
@@ -39,7 +39,9 @@ export interface Price {
   savePct: number;
 }
 
-type PriceInput = Pick<StickerConfig, "shape" | "size" | "cw" | "ch" | "qty" | "material" | "options" | "designHelp">;
+type PriceInput = Pick<StickerConfig, "shape" | "size" | "cw" | "ch" | "qty" | "material" | "options" | "designHelp"> & {
+  enhance?: boolean;
+};
 
 const toCents = (dollars: number) => Math.round(dollars * 100);
 
@@ -62,13 +64,15 @@ export function calculatePrice(cfg: PriceInput): Price {
   }
   const design = cfg.designHelp ? CATALOG.designFee : 0;
   if (design) lines.push({ label: "Design help", amount: design });
+  const enhance = cfg.enhance ? CATALOG.enhanceFee : 0;
+  if (enhance) lines.push({ label: "Image enhancement", amount: enhance });
 
   const per = (stickers + extras) / qty;
   const listUnit = unitBase * (1 + extras / stickers);
   const savePct = Math.max(0, Math.round((1 - per / listUnit) * 100));
 
   return {
-    totalCents: toCents(stickers + extras + design),
+    totalCents: toCents(stickers + extras + design + enhance),
     perCents: per * 100,
     qty,
     lines: lines.map((l) => ({ label: l.label, cents: toCents(l.amount) })),
@@ -78,7 +82,7 @@ export function calculatePrice(cfg: PriceInput): Price {
 
 /** The price of one extra option on its own (shown next to the checkbox). */
 export function optionPriceCents(cfg: PriceInput, pct: number): number {
-  const base = calculatePrice({ ...cfg, options: { laminate: false, rush: false }, designHelp: false });
+  const base = calculatePrice({ ...cfg, options: { laminate: false, rush: false }, designHelp: false, enhance: false });
   return Math.round(base.totalCents * pct);
 }
 

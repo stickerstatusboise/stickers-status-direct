@@ -7,6 +7,8 @@ Step 1 notes:
 - Uploaded files stay in the browser for now (name, size, small image preview). Real uploads to storage are step 4.
 - Checkout shows the full form but "Place order" is disabled until Stripe (step 5). Track Order and Account are short "coming soon" pages until step 3.
 - Quote form on /business doesn't send yet (needs the database/email steps).
+- Added after the prototype (owner request): customers can resize/move uploaded artwork on the preview (not for die cut; saved as `artFit` on the cart item, to be stored on order items in step 2), and a print-sharpness check on PNG/JPG uploads with a blurry-print warning (`src/lib/artwork.ts`, thresholds in `QUALITY`).
+- Image enhancement add-on (owner request): flat `CATALOG.enhanceFee` ($5) per design, offered when a PNG/JPG is uploaded and marked Recommended when it may print soft/blurry. Stored as `enhance` on the item; staff run the file through Topaz Gigapixel (show this in the admin order drawer in step 7).
 - Already added early: per-product pages with metadata and JSON-LD, sitemap.xml, robots.txt.
 
 Sources: `CLAUDE.md` (brief), `docs/prototype.html` (look, copy, flow, data shapes), `docs/requirements.md` (spec).

@@ -8,5 +8,5 @@ export function ItemSticker({ item }: { item: CartItem }) {
   const d = dims(item);
   const p = getProduct(item.productId);
   const img = item.files.find((f) => f.url);
-  return <StickerPreview url={img?.url} art={img ? undefined : p.art} shape={item.shape} material={item.material} w={d.w} h={d.h} label={p.name} />;
+  return <StickerPreview url={img?.url} art={img ? undefined : p.art} fit={item.artFit} shape={item.shape} material={item.material} w={d.w} h={d.h} label={p.name} />;
 }

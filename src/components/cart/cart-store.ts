@@ -5,6 +5,7 @@
  * where the server will reprice every item (step 5).
  */
 import { useSyncExternalStore } from "react";
+import type { ArtFit } from "@/lib/artwork";
 import type { StickerConfig } from "@/lib/config";
 
 export interface ArtFile {
@@ -13,11 +14,16 @@ export interface ArtFile {
   type: string;
   /** Small image preview (data URL) for PNG/JPG/SVG files; null for other types. */
   url: string | null;
+  /** Pixel size, for PNG/JPG files (used for the print-sharpness check). */
+  width?: number;
+  height?: number;
 }
 
 export interface CartItem extends StickerConfig {
   uid: string;
   files: ArtFile[];
+  /** Customer's resize/move of their artwork on the preview (not used for die cut). */
+  artFit?: ArtFit;
 }
 
 const KEY = "ssd-cart-v1";
