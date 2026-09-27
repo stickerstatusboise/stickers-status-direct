@@ -1,6 +1,6 @@
 # Sticker Status Direct — build plan
 
-Status: **step 2 done in code** (schema, migrations, sample data, order rules). Waiting on: applying it to the owner's Supabase project (needs network access or a local run, see README). Next: step 3.
+Status: **step 2 done in code** (schema, migrations, sample data, order rules). Applied automatically by Vercel production builds (`vercel-build` → `scripts/deploy-db.ts`) once `DATABASE_URL` is set in Vercel. Next: step 3.
 
 Step 2 notes:
 - Drizzle ORM, schema in `src/server/db/schema.ts`, migrations in `drizzle/` (`0001_rules.sql` is hand-written: proof lock triggers, `updated_at`, lowercase emails, RLS on with no policies).

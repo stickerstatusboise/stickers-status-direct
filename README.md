@@ -13,6 +13,14 @@ npm run dev      # then open http://localhost:3000
 
 ## Database (Supabase)
 
+**On Vercel (no setup on your computer):** every production deploy runs `scripts/deploy-db.ts` first, which applies new migrations.
+Set these in Vercel → Settings → Environment Variables (Production):
+- `DATABASE_URL`: Supabase Transaction pooler connection string, password filled in
+- `SEED_SAMPLE_DATA=true` (optional) loads the sample orders once, when there are no orders yet. Remove it after.
+- `ADMIN_EMAIL` (optional) gives that email an admin account when the sample data loads
+
+**On your computer:**
+
 1. Copy `.env.example` to `.env.local` and paste your Supabase connection string into `DATABASE_URL`
    (Supabase → Project Settings → Database → Connection string → **Transaction pooler**, with your database password filled in).
 2. `npm run db:migrate` creates the tables (safe to run again; it only applies new changes).
