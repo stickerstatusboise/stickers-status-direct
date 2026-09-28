@@ -1,6 +1,13 @@
 # Sticker Status Direct — build plan
 
-Status: **step 4 done** (artwork uploads to private storage). Step 3 done (sign-in, account, order page, tracker). Step 2 done (schema, migrations, sample data, order rules). Applied automatically by Vercel production builds (`vercel-build` → `scripts/deploy-db.ts`) once `DATABASE_URL` is set in Vercel. Next: step 5.
+Status: **step 5 done** (Stripe checkout; the payment webhook creates the order). Step 4 done (artwork uploads to private storage). Step 3 done (sign-in, account, order page, tracker). Step 2 done (schema, migrations, sample data, order rules). Applied automatically by Vercel production builds (`vercel-build` → `scripts/deploy-db.ts`) once `DATABASE_URL` is set in Vercel. Next: step 6.
+
+Step 5 notes:
+- Checkout form → server action `startCheckoutAction` → `buildPayload` (`src/server/checkout.ts`) re-validates everything, checks each upload's secret, and **reprices on the server with `calculatePrice`** → a `checkouts` row holds the priced cart → Stripe hosted Checkout page (card details never touch our server).
+- Stripe → `POST /api/stripe/webhook` (`checkout.session.completed`, `checkout.session.async_payment_succeeded`), verified with `STRIPE_WEBHOOK_SECRET` → `fulfillCheckout` creates the customer (if new), order, items, attaches uploads, logs "Order placed online", adds the "Order received" notification and internal notes (design help, image enhancement, artwork resize). Idempotent: the checkout row is locked, so a webhook retry and the success page can't create two orders.
+- `/checkout/success` also asks Stripe directly, so the order appears even if the webhook is late; it refreshes every 4 s until the order exists, then clears the cart.
+- Tax is a flat 6% placeholder (`cartTotals`); switch to Stripe Tax or real rates before launch.
+- Not yet: order confirmation email (step 6); cleanup of abandoned `open` checkout rows.
 
 Step 4 notes:
 - Browser → `POST /api/uploads` (checks name/size, creates a `files` row with status `pending` and a hashed secret, returns a one-time signed upload URL) → PUT straight to the private `artwork` bucket (avoids Vercel's 4.5 MB body limit) → `POST /api/uploads/complete` (reads the first 256 KB, checks the file signature matches the extension, reads PNG/JPEG pixel size; mismatches are deleted and marked `rejected`). Logic in `src/server/uploads.ts`, rules in `src/lib/uploads.ts`.

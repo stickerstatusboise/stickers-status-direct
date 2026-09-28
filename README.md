@@ -29,6 +29,15 @@ Set these in Vercel → Settings → Environment Variables (Production):
 
 Changing the schema: edit `src/server/db/schema.ts`, run `npm run db:generate`, commit the new file in `drizzle/`, then `npm run db:migrate`.
 
+## Payments (Stripe)
+
+Set in Vercel → Settings → Environment Variables:
+- `STRIPE_SECRET_KEY`: Stripe → Developers → API keys → Secret key (`sk_test_…` while testing)
+- `STRIPE_WEBHOOK_SECRET`: Stripe → Developers → Webhooks → endpoint `https://<your-site>/api/stripe/webhook`, events `checkout.session.completed` and `checkout.session.async_payment_succeeded` → Signing secret (`whsec_…`)
+
+Without `STRIPE_SECRET_KEY` the checkout button stays disabled. Test card: 4242 4242 4242 4242, any future date, any CVC.
+Locally, `stripe listen --forward-to localhost:3000/api/stripe/webhook` (Stripe CLI) prints a webhook secret to use in `.env.local`.
+
 ## Checks (run before calling a step done)
 
 ```bash
