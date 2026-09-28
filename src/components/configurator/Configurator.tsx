@@ -12,7 +12,9 @@ import { CATALOG, getMaterial, getProduct, getShape, type ShapeId } from "@/lib/
 import { dimLabel, dims, newConfig, normalizeQty, type StickerConfig } from "@/lib/config";
 import { fmtQty, fmtSize, money } from "@/lib/format";
 import { calculatePrice, optionPriceCents } from "@/lib/pricing";
+import { precheck, UPLOAD_LIMITS } from "@/lib/uploads";
 import { fileQuality, QualityBadge, QualityNote } from "./ArtQuality";
+import { uploadArtwork } from "./upload-client";
 
 const SHAPE_ICONS: Record<ShapeId, React.ReactNode> = {
   diecut: <path d="M20 5c6 0 7 5 11 6s5 6 3 10 1 9-5 12-8 1-12 1-10-4-10-10 3-7 2-11 5-8 11-8z" fill="none" stroke="currentColor" strokeWidth="2.2" strokeDasharray="3 2.5" />,
@@ -52,6 +54,15 @@ async function readImageSize(f: File): Promise<{ width?: number; height?: number
 }
 
 const KEY_STEP = 0.02;
+
+/** What gets saved in the cart for a file (no progress or error text). */
+function toCartFile(f: ArtFile): ArtFile {
+  const c = { ...f };
+  delete c.progress;
+  delete c.error;
+  delete c.canRetry;
+  return c;
+}
 const toConfig = (i: CartItem): StickerConfig => ({
   productId: i.productId,
   shape: i.shape,
@@ -78,13 +89,18 @@ export function Configurator({ productId, editing }: Props) {
   const product = getProduct(editing?.productId ?? productId);
 
   const [cfg, setCfg] = useState<StickerConfig>(() => (editing ? toConfig(editing) : newConfig(product.id)));
-  const [files, setFiles] = useState<ArtFile[]>(editing?.files ?? []);
+  // A file still "uploading" in a saved cart means the page closed mid-upload: it has to be added again
+  const [files, setFiles] = useState<ArtFile[]>(() =>
+    (editing?.files ?? []).map((f) => (f.status === "uploading" ? { ...f, status: "error", error: "Upload didn't finish. Remove it and add it again." } : f)),
+  );
   const [fit, setFit] = useState<ArtFit>(editing?.artFit ?? DEFAULT_FIT);
   const [err, setErr] = useState("");
   const [customQty, setCustomQty] = useState(CATALOG.quantities.includes(cfg.qty) ? "" : String(cfg.qty));
   const [dragOver, setDragOver] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const replaceIdx = useRef<number | null>(null);
+  /** The actual File objects, kept for retries (they can't be saved in the cart). */
+  const rawFiles = useRef(new Map<string, File>());
   const artworkRef = useRef<HTMLElement>(null);
   const notesRef = useRef<HTMLTextAreaElement>(null);
   const drag = useRef<{ px: number; py: number; start: ArtFit; perX: number; perY: number } | null>(null);
@@ -116,24 +132,58 @@ export function Configurator({ productId, editing }: Props) {
     setFiles(next);
   }
 
+  const patchFile = (key: string, patch: Partial<ArtFile>) => setFiles((cur) => cur.map((f) => (f.key === key ? { ...f, ...patch } : f)));
+
+  /** Send one file to storage and record the result on its row. */
+  async function upload(key: string) {
+    const file = rawFiles.current.get(key);
+    if (!file) return;
+    patchFile(key, { status: "uploading", progress: 0, error: undefined, canRetry: false });
+    const r = await uploadArtwork(file, cfg.designHelp ? "reference" : "artwork", (progress) => patchFile(key, { progress }));
+    if (r.ok) patchFile(key, { status: "ready", fileId: r.fileId, token: r.token, ...(r.width && r.height ? { width: r.width, height: r.height } : {}) });
+    else if (r.local) patchFile(key, { status: "local" });
+    else patchFile(key, { status: "error", error: r.error, canRetry: r.retryable });
+  }
+
   async function addFiles(list: FileList | File[]) {
     const arr = [...list];
-    const ok = arr.filter((f) => CATALOG.uploadTypes.includes(extOf(f.name)));
-    const bad = arr.filter((f) => !ok.includes(f));
-    if (bad.length) toast("That file type isn't supported", `${bad.map((f) => f.name).join(", ")}. Use AI, EPS, SVG, PDF, PSD, PNG or JPG.`);
+    const problems = arr.map((f) => [f, precheck(f.name, f.size)] as const);
+    const bad = problems.filter(([, p]) => p);
+    if (bad.length) toast(bad.length > 1 ? "Some files can't be used" : "That file can't be used", `${bad[0][0].name}: ${bad[0][1]}`);
+    let ok = problems.filter(([, p]) => !p).map(([f]) => f);
+    const replacing = replaceIdx.current != null && files[replaceIdx.current] ? 1 : 0;
+    const room = UPLOAD_LIMITS.maxFilesPerItem - files.length + replacing;
+    if (ok.length > room) {
+      toast(`Up to ${UPLOAD_LIMITS.maxFilesPerItem} files per sticker`, "Zip or combine extra files, or add them to another sticker.");
+      ok = ok.slice(0, Math.max(0, room));
+    }
     if (!ok.length) return;
     const out: ArtFile[] = await Promise.all(
-      ok.map(async (f) => ({ name: f.name, size: f.size, type: extOf(f.name), url: await readPreview(f), ...(await readImageSize(f)) })),
+      ok.map(async (f) => {
+        const key = newUid();
+        rawFiles.current.set(key, f);
+        return { key, name: f.name, size: f.size, type: extOf(f.name), url: await readPreview(f), ...(await readImageSize(f)), status: "uploading" as const, progress: 0 };
+      }),
     );
     const at = replaceIdx.current;
     replaceIdx.current = null;
     updateFiles(at != null && files[at] ? [...files.slice(0, at), ...out, ...files.slice(at + 1)] : [...files, ...out]);
     setErr("");
-    toast(out.length > 1 ? `${out.length} files added` : "Artwork added", out.map((f) => f.name).join(", "), "ok");
+    out.forEach((f) => upload(f.key!));
   }
 
   function addToCart() {
     const hasArt = files.length > 0;
+    if (files.some((f) => f.status === "uploading")) {
+      setErr("Hang on, your files are still uploading.");
+      artworkRef.current?.scrollIntoView({ block: "center" });
+      return;
+    }
+    if (files.some((f) => f.status === "error")) {
+      setErr("One of your files didn't upload. Retry it or remove it.");
+      artworkRef.current?.scrollIntoView({ block: "center" });
+      return;
+    }
     if (!hasArt && !cfg.designHelp) {
       setErr('Upload your artwork, or check "I need design help".');
       artworkRef.current?.scrollIntoView({ block: "center" });
@@ -148,7 +198,7 @@ export function Configurator({ productId, editing }: Props) {
       ...cfg,
       qty: normalizeQty(cfg.qty),
       uid: editing?.uid ?? newUid(),
-      files,
+      files: files.map(toCartFile),
       artFit: adjustable && !isDefaultFit(fit) ? fit : undefined,
     };
     cart.upsert(item);
@@ -492,7 +542,7 @@ export function Configurator({ productId, editing }: Props) {
             </div>
             <div className="files">
               {files.map((f, i) => (
-                <div key={`${f.name}-${i}`} className="file">
+                <div key={f.key ?? `${f.name}-${i}`} className="file" data-status={f.status}>
                   <span className="thumb">
                     {f.url ? (
                       // eslint-disable-next-line @next/next/no-img-element -- local data: URL preview
@@ -506,10 +556,25 @@ export function Configurator({ productId, editing }: Props) {
                     <div className="fmeta">
                       {f.type.toUpperCase()} · {fmtSize(f.size)}
                       {f.width && f.height ? ` · ${f.width} × ${f.height} px` : ""}
-                      <QualityBadge file={f} sticker={d} shape={cfg.shape} fit={f === art ? fit : undefined} enhance={cfg.enhance} />
+                      {f.status === "error" ? null : <QualityBadge file={f} sticker={d} shape={cfg.shape} fit={f === art ? fit : undefined} enhance={cfg.enhance} />}
                     </div>
+                    {f.status === "uploading" ? (
+                      <div className="up-bar" role="progressbar" aria-label={`Uploading ${f.name}`} aria-valuenow={f.progress ?? 0} aria-valuemin={0} aria-valuemax={100}>
+                        <i style={{ width: `${f.progress ?? 0}%` }} />
+                        <span>{(f.progress ?? 0) < 100 ? `Uploading ${f.progress ?? 0}%` : "Checking file…"}</span>
+                      </div>
+                    ) : f.status === "ready" ? (
+                      <div className="up-ok">
+                        <Icon name="check" size={13} /> Uploaded
+                      </div>
+                    ) : f.status === "error" ? (
+                      <div className="up-err" role="alert">
+                        {f.error}
+                      </div>
+                    ) : null}
                   </div>
                   <div className="acts">
+                    {f.status === "error" && f.canRetry && f.key ? <button onClick={() => upload(f.key!)}>Retry</button> : null}
                     <button
                       onClick={() => {
                         replaceIdx.current = i;

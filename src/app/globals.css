@@ -581,3 +581,17 @@ body.has-mbar .toasts{bottom:calc(96px + env(safe-area-inset-bottom,0px))}
 .demobar-staff a{color:#bdb4b4;font-weight:600}
 .demobar-staff a:hover{color:#fff}
 }
+
+/* Upload progress on artwork rows (step 4) */
+@layer components {
+.up-bar{position:relative;margin-top:6px;height:18px;border-radius:6px;background:var(--bg-2);overflow:hidden;max-width:260px}
+.up-bar i{position:absolute;inset:0 auto 0 0;background:var(--red-soft);transition:width .2s}
+.up-bar span{position:relative;font-family:var(--mono);font-size:10.5px;font-weight:700;padding:0 8px;line-height:18px;color:var(--red-ink)}
+.up-ok{margin-top:4px;font-size:12px;font-weight:700;color:var(--ok);display:flex;gap:4px;align-items:center}
+.up-err{margin-top:4px;font-size:12.5px;font-weight:600;color:var(--red-ink)}
+}
+@media (max-width:560px){
+  .file{flex-wrap:wrap}
+  .file > div:nth-child(2){flex:1}
+  .file .acts{flex-basis:100%;justify-content:flex-end;margin-left:0}
+}

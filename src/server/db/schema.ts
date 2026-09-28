@@ -165,6 +165,10 @@ export const files = pgTable(
     sha256: text("sha256"),
     /** Placeholder art key for seeded demo data (see src/lib/art.ts). Null for real uploads. */
     sampleArt: text("sample_art"),
+    /** pending: upload started; ready: bytes checked; rejected: not the file type it claimed. */
+    status: text("status").notNull().default("ready"),
+    /** SHA-256 of the secret the uploader's browser holds, so only they can attach the file to an order. */
+    uploadTokenHash: text("upload_token_hash"),
     orderId: uuid("order_id").references(() => orders.id, { onDelete: "cascade" }),
     orderItemId: uuid("order_item_id").references(() => orderItems.id, { onDelete: "cascade" }),
     uploadedBy: uuid("uploaded_by").references(() => customers.id),

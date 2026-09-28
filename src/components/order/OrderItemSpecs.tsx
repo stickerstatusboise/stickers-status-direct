@@ -47,7 +47,13 @@ export function OrderItemSpecs({ item, files }: { item: OrderItemRow; files: Fil
             return (
               <span key={f.id}>
                 {i ? ", " : ""}
-                {f.originalName}
+                {f.sampleArt || f.status !== "ready" ? (
+                  f.originalName
+                ) : (
+                  <a className="link" href={`/api/files/${f.id}/download`}>
+                    {f.originalName}
+                  </a>
+                )}
                 {q && q.level !== "good" && !item.enhance ? (
                   <span className="qbadge" data-level={q.level}>
                     {QUALITY_LABEL[q.level]}
