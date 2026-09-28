@@ -262,6 +262,23 @@ export const notifications = pgTable(
   (t) => [index("notifications_customer_idx").on(t.customerId, t.createdAt)],
 );
 
+/**
+ * A checkout in progress: the server-checked, server-priced cart, saved when the customer clicks Place order and
+ * turned into an order once Stripe confirms payment. Stripe only gets this row's id.
+ */
+export const checkouts = pgTable("checkouts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  stripeSessionId: text("stripe_session_id").unique(),
+  email: text("email").notNull(),
+  /** CheckoutPayload (src/server/checkout.ts). */
+  payload: jsonb("payload").notNull(),
+  totalCents: integer("total_cents").notNull(),
+  status: text("status").notNull().default("open"),
+  orderId: uuid("order_id").references(() => orders.id),
+  createdAt: created(),
+  completedAt: ts("completed_at"),
+});
+
 /** Stripe webhook events already processed (so a retried webhook never creates a second order). */
 export const stripeEvents = pgTable("stripe_events", {
   id: text("id").primaryKey(),

@@ -5,6 +5,7 @@ import * as s from "./schema";
 import type { Db } from "./types";
 
 const ALL_TABLES = [
+  "checkouts",
   "notifications",
   "shipments",
   "internal_notes",
